@@ -28,11 +28,11 @@ pip install moviepy pyttsx3 pandas
 
 1. Clona este repositorio:
     ```bash
-    git clone https://github.com/tuusuario/nombre-del-repositorio.git
+    git clone https://github.com/AlsatianGames/VideoCreator.git
     ```
 2. Navega al directorio del proyecto:
     ```bash
-    cd nombre-del-repositorio
+    cd VideoCreator
     ```
 3. Instala las dependencias mencionadas anteriormente.
 
@@ -40,7 +40,7 @@ pip install moviepy pyttsx3 pandas
 
 1. Ejecuta el script principal:
     ```bash
-    python nombre_del_script.py
+    python VideoCreator.py
     ```
 2. Se abrirá una interfaz gráfica donde podrás seleccionar un archivo CSV.
 3. El archivo CSV debe tener el siguiente formato:
@@ -59,7 +59,7 @@ frase,tiempo
 
 ## Estructura del Proyecto
 
-- `nombre_del_script.py`: Script principal que incluye la lógica de la aplicación.
+- `VideoCreator.py`: Script principal que incluye la lógica de la aplicación.
 - `frases/`: Carpeta donde se guardan los videos generados para cada frase.
 
 ## Contribuciones
