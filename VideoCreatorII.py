@@ -8,6 +8,7 @@ import pandas as pd
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import threading
 
 # Inicializar pyttsx3
 engine = pyttsx3.init()
@@ -69,23 +70,44 @@ def generar_clips_individuales(df, progress_bar, root):
     return clips
 
 # Función para combinar todos los clips individuales y superponer el fondo
-def combinar_videos(clips, video_fondo_path):
-    # Concatenar todos los videos de frases en uno solo
-    video_frases = concatenate_videoclips(clips, method="compose")
+def combinar_videos(clips, video_fondo_path, progress_bar, root, status_label):
+    # Convertir la barra de progreso a modo indeterminado
+    progress_bar["mode"] = "indeterminate"
+    progress_bar.start()
 
-    # Cargar el video de fondo y ajustar su duración para que coincida con el video de frases
-    video_fondo = VideoFileClip(video_fondo_path).resize((1080, 1920)).set_opacity(0.1)
-    video_fondo = video_fondo.set_duration(video_frases.duration)
+    # Crear una función para ejecutar la exportación en un hilo separado
+    def exportar_video():
+        # Concatenar todos los videos de frases en uno solo
+        video_frases = concatenate_videoclips(clips, method="compose")
 
-    # Superponer el video de fondo y el video de frases
-    video_final = CompositeVideoClip([video_fondo, video_frases])
-    output_path = "video_final_con_fondo.mp4"
-    video_final.write_videofile(output_path, fps=24)
+        # Cargar el video de fondo y ajustar su duración para que coincida con el video de frases
+        video_fondo = VideoFileClip(video_fondo_path).resize((1080, 1920)).set_opacity(0.1)
+        video_fondo = video_fondo.set_duration(video_frases.duration)
+
+        # Superponer el video de fondo y el video de frases
+        video_final = CompositeVideoClip([video_fondo, video_frases])
+        output_path = "video_final_con_fondo.mp4"
+
+        # Exportar el video final
+        video_final.write_videofile(output_path, fps=24)
+
+        # Detener la barra de progreso y actualizar el mensaje de estado en la interfaz principal
+        root.after(0, lambda: finalizar_proceso(progress_bar, status_label, output_path))
+
+    # Iniciar el proceso de exportación en un hilo separado
+    threading.Thread(target=exportar_video).start()
+
+def finalizar_proceso(progress_bar, status_label, output_path):
+    # Detener la barra de progreso y actualizar el mensaje de estado
+    progress_bar.stop()
+    progress_bar["mode"] = "determinate"
+    progress_bar["value"] = 100  # Deja la barra llena para indicar que terminó
+    status_label.config(text="Completado el proceso correctamente")
     print(f"Video final generado: {output_path}")
     messagebox.showinfo("Éxito", "El video final ha sido generado correctamente.")
 
 # Función para seleccionar el archivo CSV y el video de fondo
-def seleccionar_archivo(progress_bar, root):
+def seleccionar_archivo(progress_bar, root, status_label):
     archivo_csv = filedialog.askopenfilename(
         title="Seleccionar archivo CSV",
         filetypes=(("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*"))
@@ -108,12 +130,17 @@ def seleccionar_archivo(progress_bar, root):
 
                 # Reiniciar la barra de progreso
                 progress_bar["value"] = 0
+                status_label.config(text="Generando clips individuales...")
 
                 # Generar los clips individuales sin el fondo
                 clips = generar_clips_individuales(df, progress_bar, root)
 
+                # Cambiar mensaje de estado
+                status_label.config(text="Generando video final, por favor espere...")
+                root.update_idletasks()
+
                 # Combinar todos los clips individuales con el fondo
-                combinar_videos(clips, video_fondo_path)
+                combinar_videos(clips, video_fondo_path, progress_bar, root, status_label)
 
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo procesar el archivo: {e}")
@@ -126,18 +153,22 @@ def seleccionar_archivo(progress_bar, root):
 def main():
     root = tk.Tk()
     root.title("Generador de Videos con Fondo y Frases")
-    root.geometry("400x250")
+    root.geometry("400x300")
 
     label = tk.Label(root, text="Generador de Videos con Frases", font=("Helvetica", 16))
-    label.pack(pady=20)
+    label.pack(pady=10)
 
     boton_seleccionar = tk.Button(root, text="Seleccionar Archivo CSV y Video de Fondo", font=("Helvetica", 14),
-                                  command=lambda: seleccionar_archivo(progress_bar, root))
+                                  command=lambda: seleccionar_archivo(progress_bar, root, status_label))
     boton_seleccionar.pack(pady=10)
 
     # Barra de progreso
     progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
-    progress_bar.pack(pady=20)
+    progress_bar.pack(pady=10)
+
+    # Etiqueta de estado para mostrar mensajes debajo de la barra de progreso
+    status_label = tk.Label(root, text="", font=("Helvetica", 12))
+    status_label.pack(pady=5)
 
     root.mainloop()
 
