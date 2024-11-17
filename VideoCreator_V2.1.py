@@ -7,11 +7,101 @@ import pyttsx3
 import pandas as pd
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, ttk, font, colorchooser
 import threading
 
 # Inicializar pyttsx3
 engine = pyttsx3.init()
+
+# Opciones de dimensiones del video
+DIMENSIONES_VIDEO = ["1080x1920", "1920x1080"]
+
+# Variables de configuración por defecto
+configuracion = {
+    "fuente": "Helvetica",
+    "tamano_fuente": 50,
+    "color_texto": "white",
+    "dimensiones_video": "1080x1920"
+}
+
+def abrir_ventana_ajustes(root):
+    # Crear la ventana de ajustes
+    ventana_ajustes = tk.Toplevel(root)
+    ventana_ajustes.title("Ajustes de Video")
+    ventana_ajustes.geometry("400x400")
+
+    # Label para tipo de letra
+    label_fuente = tk.Label(ventana_ajustes, text="Tipo de letra:", font=("Helvetica", 12))
+    label_fuente.pack(pady=10)
+    
+    # Obtener lista de fuentes del sistema
+    fuentes_sistema = list(font.families())
+    fuente_var = tk.StringVar(value=configuracion["fuente"])
+    
+    # Selector de tipo de letra
+    combo_fuente = ttk.Combobox(ventana_ajustes, textvariable=fuente_var, values=fuentes_sistema)
+    combo_fuente.pack()
+
+    # Label para tamaño de letra
+    label_tamano_fuente = tk.Label(ventana_ajustes, text="Tamaño de letra:", font=("Helvetica", 12))
+    label_tamano_fuente.pack(pady=10)
+    
+    # Selector de tamaño de letra
+    tamano_fuente_var = tk.IntVar(value=configuracion["tamano_fuente"])
+    spin_tamano_fuente = tk.Spinbox(ventana_ajustes, from_=10, to=200, textvariable=tamano_fuente_var)
+    spin_tamano_fuente.pack()
+
+    # Label para dimensiones del video
+    label_dimensiones = tk.Label(ventana_ajustes, text="Dimensiones del video:", font=("Helvetica", 12))
+    label_dimensiones.pack(pady=10)
+    
+    # Selector de dimensiones del video
+    dimensiones_var = tk.StringVar(value=configuracion["dimensiones_video"])
+    combo_dimensiones = ttk.Combobox(ventana_ajustes, textvariable=dimensiones_var, values=DIMENSIONES_VIDEO)
+    combo_dimensiones.pack()
+
+    # Botón para seleccionar color del texto
+    def seleccionar_color():
+        color = colorchooser.askcolor(title="Seleccionar color de letra")[1]
+        if color:
+            color_var.set(color)
+
+    label_color = tk.Label(ventana_ajustes, text="Color de la letra:", font=("Helvetica", 12))
+    label_color.pack(pady=10)
+    color_var = tk.StringVar(value=configuracion["color_texto"])
+    boton_color = tk.Button(ventana_ajustes, text="Seleccionar Color", command=seleccionar_color)
+    boton_color.pack()
+    
+    # Botón para guardar la configuración
+    def guardar_configuracion():
+        configuracion["fuente"] = fuente_var.get()
+        configuracion["tamano_fuente"] = tamano_fuente_var.get()
+        configuracion["dimensiones_video"] = dimensiones_var.get()
+        configuracion["color_texto"] = color_var.get()
+        ventana_ajustes.destroy()
+        messagebox.showinfo("Ajustes", "Los ajustes se han guardado correctamente.")
+
+    boton_guardar = tk.Button(ventana_ajustes, text="Guardar", command=guardar_configuracion)
+    boton_guardar.pack(pady=20)
+
+def seleccionar_archivo(root):
+    archivo_csv = tk.filedialog.askopenfilename(
+        title="Seleccionar archivo CSV",
+        filetypes=(("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*"))
+    )
+    if archivo_csv:
+        video_fondo_path = tk.filedialog.askopenfilename(
+            title="Seleccionar archivo de video de fondo",
+            filetypes=(("Archivos de Video", "*.mp4;*.mov;*.avi"), ("Todos los archivos", "*.*"))
+        )
+        if video_fondo_path:
+            # Abrir la ventana de ajustes después de seleccionar el CSV y el video
+            abrir_ventana_ajustes(root)
+            # Aquí seguiría la lógica para procesar los videos con la configuración ajustada
+        else:
+            messagebox.showerror("Error", "No se seleccionó un archivo de video de fondo.")
+    else:
+        messagebox.showerror("Error", "No se seleccionó un archivo CSV.")
 
 # Función para generar el audio de la frase usando pyttsx3 y guardarlo como un archivo .mp3
 def generar_audio(frase, ruta_audio):
@@ -41,6 +131,15 @@ def generar_clips_individuales(df, progress_bar, root):
     if not os.path.exists(nombre_carpeta):
         os.makedirs(nombre_carpeta)
 
+    # Obtener las configuraciones ajustadas por el usuario
+    fuente = configuracion["fuente"]
+    tamano_fuente = configuracion["tamano_fuente"]
+    color_texto = configuracion["color_texto"]
+    dimensiones_video = configuracion["dimensiones_video"]
+    
+    # Convertir las dimensiones a una tupla de enteros
+    ancho, alto = map(int, dimensiones_video.split("x"))
+
     for index, row in df.iterrows():
         frase = row['frase']
         tiempo = float(row['tiempo'])
@@ -52,8 +151,8 @@ def generar_clips_individuales(df, progress_bar, root):
         # Ajustar la duración del audio al tiempo de la frase
         audio_clip = ajustar_duracion_audio(nombre_archivo_audio, tiempo)
 
-        # Crear el TextClip para la frase sin fondo
-        texto_clip = (TextClip(frase, fontsize=160, color='white', size=(1080, 1920), font='Impact', method='caption')
+        # Crear el TextClip para la frase usando los ajustes de fuente, tamaño y color
+        texto_clip = (TextClip(frase, fontsize=tamano_fuente, color=color_texto, size=(ancho, alto), font=fuente, method='caption')
                       .set_duration(tiempo)
                       .fadein(1)
                       .set_position("center"))
@@ -106,7 +205,6 @@ def finalizar_proceso(progress_bar, status_label, output_path):
     print(f"Video final generado: {output_path}")
     messagebox.showinfo("Éxito", "El video final ha sido generado correctamente.")
 
-# Función para seleccionar el archivo CSV y el video de fondo
 def seleccionar_archivo(progress_bar, root, status_label):
     archivo_csv = filedialog.askopenfilename(
         title="Seleccionar archivo CSV",
@@ -159,8 +257,6 @@ def main():
     root.title("Generador de Videos con Fondo y Frases")
     root.geometry("400x300")
     
-    
-
     # Aplicar el estilo 'clam' de ttk para darle un aspecto más moderno
     style = ttk.Style(root)
     style.theme_use("clam")
@@ -168,9 +264,14 @@ def main():
     label = tk.Label(root, text="Generador de Videos con Frases", font=("Helvetica", 16, "bold"))
     label.pack(pady=10)
 
+    # Botón para seleccionar archivos
     boton_seleccionar = ttk.Button(root, text="Seleccionar Archivo CSV y Video de Fondo",
                                    command=lambda: seleccionar_archivo(progress_bar, root, status_label))
     boton_seleccionar.pack(pady=10)
+
+    # Botón de ajustes con texto de engranaje
+    boton_ajustes = tk.Button(root, text="⚙️ Ajustes", font=("Helvetica", 12), command=lambda: abrir_ventana_ajustes(root))
+    boton_ajustes.pack(pady=5)
 
     # Barra de progreso
     progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
