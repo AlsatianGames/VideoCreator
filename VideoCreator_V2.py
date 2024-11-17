@@ -81,7 +81,7 @@ def combinar_videos(clips, video_fondo_path, progress_bar, root, status_label):
         video_frases = concatenate_videoclips(clips, method="compose")
 
         # Cargar el video de fondo y ajustar su duración para que coincida con el video de frases
-        video_fondo = VideoFileClip(video_fondo_path).resize((1080, 1920)).set_opacity(0.1)
+        video_fondo = VideoFileClip(video_fondo_path).resize((1080, 1920)).set_opacity(0.9)
         video_fondo = video_fondo.set_duration(video_frases.duration)
 
         # Superponer el video de fondo y el video de frases
@@ -149,17 +149,27 @@ def seleccionar_archivo(progress_bar, root, status_label):
     else:
         messagebox.showerror("Error", "No se seleccionó un archivo CSV.")
 
+def cerrar_ventana(root):
+    if messagebox.askyesno("Cerrar", "¿Estás seguro de que deseas cerrar la aplicación?\nEl video puede no haberse procesado correctamente."):
+        root.destroy()  # Cierra la ventana si el usuario confirma
+
 # Configuración de la interfaz gráfica
 def main():
     root = tk.Tk()
     root.title("Generador de Videos con Fondo y Frases")
     root.geometry("400x300")
+    
+    
 
-    label = tk.Label(root, text="Generador de Videos con Frases", font=("Helvetica", 16))
+    # Aplicar el estilo 'clam' de ttk para darle un aspecto más moderno
+    style = ttk.Style(root)
+    style.theme_use("clam")
+
+    label = tk.Label(root, text="Generador de Videos con Frases", font=("Helvetica", 16, "bold"))
     label.pack(pady=10)
 
-    boton_seleccionar = tk.Button(root, text="Seleccionar Archivo CSV y Video de Fondo", font=("Helvetica", 14),
-                                  command=lambda: seleccionar_archivo(progress_bar, root, status_label))
+    boton_seleccionar = ttk.Button(root, text="Seleccionar Archivo CSV y Video de Fondo",
+                                   command=lambda: seleccionar_archivo(progress_bar, root, status_label))
     boton_seleccionar.pack(pady=10)
 
     # Barra de progreso
@@ -167,8 +177,11 @@ def main():
     progress_bar.pack(pady=10)
 
     # Etiqueta de estado para mostrar mensajes debajo de la barra de progreso
-    status_label = tk.Label(root, text="", font=("Helvetica", 12))
+    status_label = tk.Label(root, text="", font=("Helvetica", 12, "italic"))
     status_label.pack(pady=5)
+
+    # Detecta el intento de cerrar la ventana y ejecuta cerrar_ventana
+    root.protocol("WM_DELETE_WINDOW",  lambda: cerrar_ventana(root))
 
     root.mainloop()
 
