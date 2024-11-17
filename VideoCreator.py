@@ -1,4 +1,4 @@
-from moviepy.editor import TextClip, CompositeVideoClip, AudioFileClip
+from moviepy.editor import TextClip, CompositeVideoClip, AudioFileClip, VideoFileClip, concatenate_videoclips, concatenate_audioclips
 import pyttsx3
 import pandas as pd
 import os
@@ -14,48 +14,74 @@ def generar_audio(frase, ruta_audio):
     engine.runAndWait()
     return ruta_audio
 
-# Función para crear un video con letras animadas y con sonido
-def generar_videos(df, progress_bar, root):
+# Función para ajustar la duración del audio para que coincida con el tiempo especificado
+def ajustar_duracion_audio(nombre_archivo_audio, duracion_objetivo):
+    audio_clip = AudioFileClip(nombre_archivo_audio)
+    duracion_audio = audio_clip.duration
+
+    if duracion_audio < duracion_objetivo:
+        # Crear un clip de silencio para completar el tiempo restante
+        silence_duration = duracion_objetivo - duracion_audio
+        silence = AudioFileClip("C:/Users/Taliex4/Documents/Codigo/VideoCreator/silence.mp3").set_duration(silence_duration)
+        audio_clip = concatenate_audioclips([audio_clip, silence])
+    return audio_clip.set_duration(duracion_objetivo)
+
+# Función para crear videos individuales para cada frase con texto y audio
+def generar_videos_individuales(df, progress_bar, root):
+    clips = []
     total = len(df)
     progress_bar["maximum"] = total
+
+    # Crear la carpeta para almacenar los videos de frases
+    nombre_carpeta = "videos_frases"
+    if not os.path.exists(nombre_carpeta):
+        os.makedirs(nombre_carpeta)
 
     for index, row in df.iterrows():
         frase = row['frase']
         tiempo = float(row['tiempo'])
 
-        # Crear la carpeta para cada frase
-        nombre_carpeta = "frases"
-        if not os.path.exists(nombre_carpeta):
-            os.makedirs(nombre_carpeta)
-
-        # Ruta de los archivos dentro de la carpeta
+        # Rutas de los archivos de audio y video
         nombre_archivo_audio = os.path.join(nombre_carpeta, f"audio_frase_{index+1}.mp3")
         nombre_archivo_video = os.path.join(nombre_carpeta, f"video_frase_{index+1}.mp4")
 
-        # Generar el archivo de audio
+        # Generar el archivo de audio para la frase
         generar_audio(frase, nombre_archivo_audio)
 
-        # Crear un TextClip con animación de desvanecimiento y fuente Impact
+        # Ajustar la duración del audio al tiempo de la frase
+        audio_clip = ajustar_duracion_audio(nombre_archivo_audio, tiempo)
+
+        # Crear el TextClip para la frase
         texto_clip = (TextClip(frase, fontsize=160, color='white', size=(1080, 1920), font='Impact', method='caption', bg_color='black')
                       .set_duration(tiempo)
-                      .fadein(1))  # Aplicar el efecto de fade in durante 1 segundo
+                      .fadein(1))
 
-        # Establecer la duración del video
-        texto_clip = texto_clip.set_duration(tiempo)
-
-        # Añadir el audio al video
-        audio_clip = AudioFileClip(nombre_archivo_audio)
+        # Añadir el audio ajustado al clip de texto
         video_con_audio = texto_clip.set_audio(audio_clip)
 
-        # Exportar el video en formato MP4 dentro de la carpeta
+        # Exportar el video individual en formato MP4
         video_con_audio.write_videofile(nombre_archivo_video, fps=24)
         print(f"Video generado: {nombre_archivo_video}")
+
+        # Cargar el video exportado para asegurarnos de que se concatene correctamente
+        clip_cargado = VideoFileClip(nombre_archivo_video)
+        clips.append(clip_cargado)
 
         # Actualizar la barra de progreso
         progress_bar["value"] = index + 1
         root.update_idletasks()
 
-    messagebox.showinfo("Éxito", "Todos los videos han sido generados correctamente.")
+    messagebox.showinfo("Éxito", "Todos los videos individuales han sido generados correctamente.")
+    return clips
+
+# Función para combinar todos los videos individuales en un solo video final
+def combinar_videos(clips):
+    # Concatenar todos los videos en uno solo
+    video_final = concatenate_videoclips(clips, method="compose")
+    output_path = "video_final_con_frases.mp4"
+    video_final.write_videofile(output_path, fps=24)
+    print(f"Video final generado: {output_path}")
+    messagebox.showinfo("Éxito", "El video final ha sido generado correctamente.")
 
 # Función para seleccionar el archivo CSV
 def seleccionar_archivo(progress_bar, root):
@@ -63,18 +89,25 @@ def seleccionar_archivo(progress_bar, root):
         title="Seleccionar archivo CSV",
         filetypes=(("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*"))
     )
+
     if archivo_csv:
         try:
             df = pd.read_csv(archivo_csv)
             progress_bar["value"] = 0  # Reiniciar la barra de progreso
-            generar_videos(df, progress_bar, root)
+
+            # Generar los videos individuales
+            clips = generar_videos_individuales(df, progress_bar, root)
+
+            # Combinar todos los videos individuales en un solo video final
+            combinar_videos(clips)
+
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo procesar el archivo CSV: {e}")
+            messagebox.showerror("Error", f"No se pudo procesar el archivo: {e}")
 
 # Configuración de la interfaz gráfica
 def main():
     root = tk.Tk()
-    root.title("Generador de Videos")
+    root.title("Generador de Videos con Frases")
     root.geometry("400x250")
 
     label = tk.Label(root, text="Generador de Videos con Frases", font=("Helvetica", 16))
